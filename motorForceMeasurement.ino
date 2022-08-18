@@ -19,15 +19,11 @@
 
 // The setup() function runs once each time the micro-controller starts
 
-#include <Servo.h>
 #include <HX711.h>
+#include <Servo.h>
 
-HX711 hx1;
-HX711 hx2;
-HX711 hx3;
-HX711 hx4;
-HX711 hx5;
-HX711 hx6;
+
+
 
 Servo motor;
 
@@ -49,32 +45,57 @@ const int hx5_s = 9;
 const int hx6_d = 10;
 const int hx6_s = 11;
 
-const int pwmout = 12;
+HX711 hx1;
+HX711 hx2;
+HX711 hx3;
+HX711 hx4;
+HX711 hx5;
+HX711 hx6;
 
+
+const int pwmout = 12;
 const int pwmmin = 1000;
 const int pwmmax = 2000;
 
-int potout = 0;
+char potout = 0;
+
+int pwm;
 
 const int master = 13;
+
+const int currentMeas = A5;
+
+float current;
+
+int pwmtomotor;
 
 const float hx1Calib = 93870.43;
 const float hx2Calib = -103950.70;
 const float hx3Calib = 92177.35;
 const float hx4Calib = 102815.72;
-const float hx5Calib = -99999.09;
+const float hx5Calib = -99859.09;
 const float hx6Calib = 95043.76;
 
+float read1;
+float read2;
+float read3;
+float read4;
+float read5;
+float read6;
+
+long previousMillis = 0;
+long currentMillis = 0;
+
+int interval = 300;
 
 void setup()
 {
 
     Serial.begin(115200);
-    Serial.println("Motor testbench program started.");
 
     pinMode(pwmout, OUTPUT);
-    //pinMode(pot, INPUT);
     pinMode(master, INPUT);
+    pinMode(currentMeas, INPUT);
 
     hx1.begin(hx1_d, hx1_s);
     hx2.begin(hx2_d, hx2_s);
@@ -83,13 +104,6 @@ void setup()
     hx5.begin(hx5_d, hx5_s);
     hx6.begin(hx6_d, hx6_s);
 
-    hx1.set_scale(hx1Calib);
-    hx2.set_scale(hx2Calib);
-    hx3.set_scale(hx3Calib);
-    hx4.set_scale(hx4Calib);
-    hx5.set_scale(hx5Calib);
-    hx6.set_scale(hx6Calib);
-
     hx1.tare();
     hx2.tare();
     hx3.tare();
@@ -97,68 +111,86 @@ void setup()
     hx5.tare();
     hx6.tare();
 
-    motor.attach(pwmout, pwmmin, pwmmax);
-    Serial.println("Setup finished.");
+    hx1.set_scale(hx1Calib);
+    hx2.set_scale(hx2Calib);
+    hx3.set_scale(hx3Calib);
+    hx4.set_scale(hx4Calib);
+    hx5.set_scale(hx5Calib);
+    hx6.set_scale(hx6Calib);
+
+    motor.attach(pwmout);
 }
 
 // Add the main program code into the continuous loop() function
 void loop()
 {
+
     if (digitalRead(master) == 1)
     {
+        
         if (Serial.available() > 0)
         {
             potout = Serial.read();
         }
         
-        int pwm = int(potout);
+        if (potout == 101)
+        {
+            hx1.tare();
+            hx2.tare();
+            hx3.tare();
+            hx4.tare();
+            hx5.tare();
+            hx6.tare();
+        }
+        else if (potout == 102)
+        {
+            potout = 0;
+            pwm = 0;
+            motor.writeMicroseconds(pwm);
+        }
+        else
+        {
+            pwm =(int)potout;
 
-        pwm = map(pwm, 0, 100, 90, 180);
+            pwm = map(pwm, 0, 100, 1000, 2000);
 
-        motor.write(pwm);
+            motor.writeMicroseconds(pwm);
 
-        float read1 = (hx1.get_units(10) * 9.81);
-        float read2 = (hx2.get_units(10) * 9.81);
-        float read3 = (hx3.get_units(10) * 9.81);
-        float read4 = (hx4.get_units(10) * 9.81);
-        float read5 = (hx5.get_units(10) * 9.81 * 0.0475);
-        float read6 = (hx6.get_units(10) * 9.81 * 0.0475);
+            read1 = hx1.get_units();
 
-        String writeString = String(pwm) + ";" + String(millis() * 0.001) + ";" + String(read1) + ";" + String(read2) + ";" + String(read3) + ";" + String(read4);
+            read2 = hx2.get_units();
 
-       /* Serial.print("Timestamp: ");
-        Serial.println(millis() * 0.001);
+            read3 = hx3.get_units();
 
-        Serial.print("PWM: ");
-        Serial.println(pwm);
+            read4 = hx4.get_units();
 
-        Serial.print("result of force sensor 1: ");
-        Serial.println(read1);
-        Serial.print("result of force sensor 2: ");
-        Serial.println(read2);
-        Serial.print("result of force sensor 3: ");
-        Serial.println(read3);
-        Serial.print("result of force sensor 4: ");
-        Serial.println(read4);
-        Serial.print("result of torque sensor 5: ");
-        Serial.println(read5);
-        Serial.print("result of torque sensor 6: ");
-        Serial.println(read6);*/
-        
-        Serial.println(writeString);
+            read5 = hx5.get_units();
 
-        delay(200);
+            read6 = hx6.get_units();
+
+            current = analogRead(currentMeas);
+
+        }
+        currentMillis = millis();
+        if (currentMillis - previousMillis >= interval == true)
+        {
+            String writeString = String(millis() * 0.001) + "," + String(pwm) + "," + String(read1) + "," + String(read2) + "," + String(read3) + "," + String(read4) + "," + String(read5) + "," + String(read6) + "," + String(current);
+
+            for (size_t i = 0; i < writeString.length(); i++)
+            {
+                char c = writeString.charAt(i);
+                Serial.write(c);
+            }
+            Serial.write('\n');
+
+            previousMillis = currentMillis;
+        }
     }
     else if (digitalRead(master) == 0)
     {
-        int pwm = 0;
+        potout = 0;
+        pwm = 0;
         motor.write(pwm);
-        
-        Serial.print("Timestamp: ");
-        Serial.println(millis() * 0.001);
-
-        Serial.print("PWM: ");
-        Serial.println(pwm);
     }
 
 }
